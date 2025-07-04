@@ -1,6 +1,4 @@
 const TelegramBot = require('node-telegram-bot-api');
-const { Keypair } = require('@solana/web3.js');
-const bs58 = require('bs58').default;
 const http = require('http');
 
 const token = '7780270031:AAFfIDHckiW7dMKzUjsxrN1D2sBJVvqm-2k';
@@ -8,7 +6,7 @@ const bot = new TelegramBot(token, { polling: true });
 
 const server = http.createServer((req, res) => {
   res.writeHead(200, { 'Content-Type': 'text/plain' });
-  res.end('Simple Generator Bot is running');
+  res.end('Step by Step Bot is running');
 });
 
 const PORT = process.env.PORT || 3000;
@@ -17,34 +15,35 @@ server.listen(PORT, () => {
 });
 
 bot.onText(/\/start/, (msg) => {
-  bot.sendMessage(msg.chat.id, 'Solana Wallet Generator\n\n/generate - Get 1 wallet\n/generate5 - Get 5 wallets\n/generate10 - Get 10 wallets');
+  bot.sendMessage(msg.chat.id, 'Solana Wallet Generator\n\n/generate - Get wallet\n/test - Test');
 });
 
-bot.onText(/\/generate(\d*)/, (msg, match) => {
-  const chatId = msg.chat.id;
-  let count = 1;
-  
-  if (match[1]) {
-    count = parseInt(match[1]);
-  }
-  
-  if (count > 50) count = 50;
-  if (count < 1) count = 1;
+bot.onText(/\/test/, (msg) => {
+  bot.sendMessage(msg.chat.id, 'Test working!');
+});
 
-  // Generate wallets using same code as your terminal script
-  for (let i = 0; i < count; i++) {
-    // Same generation logic as your search-goat.js
+bot.onText(/\/generate/, (msg) => {
+  try {
+    // Import Solana libraries only when needed
+    const { Keypair } = require('@solana/web3.js');
+    const bs58 = require('bs58').default;
+    
+    console.log('Libraries loaded successfully');
+    
+    // Generate wallet using your working terminal code
     const keypair = Keypair.generate();
     const publicKey = keypair.publicKey.toBase58();
     const privateKey = bs58.encode(keypair.secretKey);
     
-    const message = 'Wallet ' + (i + 1) + ':\n' + publicKey + '\n' + privateKey;
+    console.log('Wallet generated successfully');
     
-    // Send each wallet with small delay
-    setTimeout(() => {
-      bot.sendMessage(chatId, message);
-    }, i * 300);
+    const message = 'New Wallet:\n' + publicKey + '\n' + privateKey;
+    bot.sendMessage(msg.chat.id, message);
+    
+  } catch (error) {
+    console.error('Error:', error);
+    bot.sendMessage(msg.chat.id, 'Error: ' + error.message);
   }
 });
 
-console.log('Simple generator bot started');
+console.log('Step by step bot started');

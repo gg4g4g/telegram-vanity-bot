@@ -8,7 +8,7 @@ const bot = new TelegramBot(token, { polling: true });
 
 const server = http.createServer((req, res) => {
   res.writeHead(200, { 'Content-Type': 'text/plain' });
-  res.end('Working Wallet Bot is running');
+  res.end('Simple Generator Bot is running');
 });
 
 const PORT = process.env.PORT || 3000;
@@ -31,25 +31,20 @@ bot.onText(/\/generate(\d*)/, (msg, match) => {
   if (count > 50) count = 50;
   if (count < 1) count = 1;
 
-  try {
-    for (let i = 0; i < count; i++) {
-      setTimeout(() => {
-        try {
-          const keypair = Keypair.generate();
-          const address = keypair.publicKey.toBase58();
-          const privateKey = bs58.encode(keypair.secretKey);
-          
-          bot.sendMessage(chatId, `Wallet ${i + 1}:\n${address}\n${privateKey}`);
-        } catch (error) {
-          console.error('Error generating wallet:', error);
-          bot.sendMessage(chatId, 'Error generating wallet. Please try again.');
-        }
-      }, i * 200);
-    }
-  } catch (error) {
-    console.error('Error in generate command:', error);
-    bot.sendMessage(chatId, 'Error processing request. Please try again.');
+  // Generate wallets using same code as your terminal script
+  for (let i = 0; i < count; i++) {
+    // Same generation logic as your search-goat.js
+    const keypair = Keypair.generate();
+    const publicKey = keypair.publicKey.toBase58();
+    const privateKey = bs58.encode(keypair.secretKey);
+    
+    const message = 'Wallet ' + (i + 1) + ':\n' + publicKey + '\n' + privateKey;
+    
+    // Send each wallet with small delay
+    setTimeout(() => {
+      bot.sendMessage(chatId, message);
+    }, i * 300);
   }
 });
 
-console.log('Working wallet bot started');
+console.log('Simple generator bot started');

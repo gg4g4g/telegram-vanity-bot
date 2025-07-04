@@ -8,7 +8,7 @@ const bot = new TelegramBot(token, { polling: true });
 
 const server = http.createServer((req, res) => {
   res.writeHead(200, { 'Content-Type': 'text/plain' });
-  res.end('Simple Wallet Generator Bot is running');
+  res.end('Instant Wallet Generator Bot is running');
 });
 
 const PORT = process.env.PORT || 3000;
@@ -27,10 +27,6 @@ Commands:
 /generate25 - Generate 25 wallets
 /generate50 - Generate 50 wallets
 
-Each wallet includes:
-• Public address
-• Private key (ready to import)
-
 ⚠️ Save your private keys securely!`);
 });
 
@@ -48,51 +44,34 @@ bot.onText(/\/generate(\d*)/, (msg, match) => {
   }
   
   if (count < 1) {
-    bot.sendMessage(chatId, '❌ Must generate at least 1 wallet');
-    return;
+    count = 1;
   }
 
-  bot.sendMessage(chatId, `⏳ Generating ${count} fresh wallet${count > 1 ? 's' : ''}...`);
-  generateWallets(chatId, count);
-});
-
-function generateWallets(chatId, count) {
+  // Generate wallets instantly
   const wallets = [];
-  
   for (let i = 0; i < count; i++) {
     const keypair = Keypair.generate();
     wallets.push({
-      number: i + 1,
-      publicKey: keypair.publicKey.toBase58(),
+      address: keypair.publicKey.toBase58(),
       privateKey: bs58.encode(keypair.secretKey)
     });
   }
   
-  if (count === 1) {
-    const wallet = wallets[0];
-    bot.sendMessage(chatId, `🎉 New Solana Wallet!
+  // Format message exactly like your example
+  let message = `New Wallets:\nAddress: `;
+  
+  // Add all addresses first
+  message += wallets.map(w => w.address).join('\n');
+  
+  message += `\n\nPrivate key:\n`;
+  
+  // Add all private keys
+  message += wallets.map(w => w.privateKey).join('\n');
+  
+  // Send immediately
+  bot.sendMessage(chatId, message);
+  
+  console.log(`Generated ${count} wallets instantly for chat ${chatId}`);
+});
 
-Address: \`${wallet.publicKey}\`
-
-Private Key: \`${wallet.privateKey}\`
-
-⚠️ Save your private key securely!`, { parse_mode: 'Markdown' });
-  } else {
-    for (let i = 0; i < wallets.length; i += 10) {
-      const batch = wallets.slice(i, i + 10);
-      let message = `🎉 Wallets ${batch[0].number}-${batch[batch.length - 1].number}:\n\n`;
-      
-      batch.forEach(wallet => {
-        message += `Wallet ${wallet.number}:\n`;
-        message += `Address: \`${wallet.publicKey}\`\n`;
-        message += `Private Key: \`${wallet.privateKey}\`\n\n`;
-      });
-      
-      setTimeout(() => {
-        bot.sendMessage(chatId, message, { parse_mode: 'Markdown' });
-      }, (i / 10) * 2000);
-    }
-  }
-}
-
-console.log('Simple Wallet Generator Bot started!');
+console.log('Instant Wallet Generator Bot started!');

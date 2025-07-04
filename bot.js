@@ -9,7 +9,7 @@ const activeSearches = new Map();
 
 const server = http.createServer((req, res) => {
   res.writeHead(200, { 'Content-Type': 'text/plain' });
-  res.end('Bot is running');
+  res.end('Bot is running. Active searches: ' + activeSearches.size);
 });
 
 const PORT = process.env.PORT || 3000;
@@ -19,7 +19,7 @@ server.listen(PORT, () => {
 
 bot.onText(/\/start/, (msg) => {
   const chatId = msg.chat.id;
-  bot.sendMessage(chatId, 'Solana Vanity Address Generator\n\n/generate <suffix> - Find address ending with suffix\n/stop - Stop search\n\nExample: /generate haha');
+  bot.sendMessage(chatId, 'Solana Vanity Address Generator\n\n/generate <suffix> - Find address ending with suffix\n/stop - Stop search\n/status - Check progress\n\nExample: /generate haha\n\nNote: 4+ character suffixes can take hours or days!');
 });
 
 bot.onText(/\/generate (.+)/, (msg, match) => {
@@ -41,7 +41,14 @@ bot.onText(/\/generate (.+)/, (msg, match) => {
     return;
   }
 
-  bot.sendMessage(chatId, 'Searching for "' + suffix + '"...');
+  let warning = '';
+  if (suffix.length >= 4) {
+    if (suffix.length === 4) warning = '\n\n⚠️ 4-character search could take several hours';
+    if (suffix.length === 5) warning = '\n\n⚠️ 5-character search could take days';
+    if (suffix.length === 6) warning = '\n\n⚠️ 6-character search could take months';
+  }
+
+  bot.sendMessage(chatId, 'Searching for "' + suffix + '"...' + warning);
   startSearch(chatId, suffix);
 });
 
@@ -55,35 +62,59 @@ bot.onText(/\/stop/, (msg) => {
   }
 });
 
+bot.onText(/\/status/, (msg) => {
+  const chatId = msg.chat.id;
+  if (activeSearches.has(chatId)) {
+    const search = activeSearches.get(chatId);
+    const elapsed = (Date.now() - search.startTime) / 1000;
+    const rate = Math.round(search.attempts / elapsed);
+    bot.sendMessage(chatId, 'Searching for "' + search.suffix + '"\nAttempts: ' + search.attempts.toLocaleString() + '\nTime: ' + Math.round(elapsed) + 's\nRate: ' + rate.toLocaleString() + '/sec');
+  } else {
+    bot.sendMessage(chatId, 'No active search');
+  }
+});
+
 function startSearch(chatId, suffix) {
   let attempts = 0;
   const startTime = Date.now();
-  activeSearches.set(chatId, true);
+  activeSearches.set(chatId, { suffix, startTime, attempts: 0 });
   
-  function search() {
+  const BATCH_SIZE = 1000;
+  
+  function searchBatch() {
     if (!activeSearches.has(chatId)) return;
     
-    const keypair = Keypair.generate();
-    const publicKey = keypair.publicKey.toBase58();
-    attempts++;
-    
-    if (publicKey.toLowerCase().endsWith(suffix)) {
-      activeSearches.delete(chatId);
-      const privateKey = bs58.encode(keypair.secretKey);
-      const elapsed = (Date.now() - startTime) / 1000;
+    for (let i = 0; i < BATCH_SIZE; i++) {
+      const keypair = Keypair.generate();
+      const publicKey = keypair.publicKey.toBase58();
+      attempts++;
       
-      bot.sendMessage(chatId, 'FOUND!\n\nAddress: ' + publicKey + '\nPrivate Key: ' + privateKey + '\n\nAttempts: ' + attempts + '\nTime: ' + Math.round(elapsed) + 's');
-      return;
+      if (publicKey.toLowerCase().endsWith(suffix)) {
+        activeSearches.delete(chatId);
+        const privateKey = bs58.encode(keypair.secretKey);
+        const elapsed = (Date.now() - startTime) / 1000;
+        const rate = Math.round(attempts / elapsed);
+        
+        bot.sendMessage(chatId, 'FOUND!\n\nAddress: ' + publicKey + '\nPrivate Key: ' + privateKey + '\n\nAttempts: ' + attempts.toLocaleString() + '\nTime: ' + Math.round(elapsed) + 's\nRate: ' + rate.toLocaleString() + '/sec');
+        return;
+      }
     }
     
-    if (attempts % 50000 === 0) {
-      bot.sendMessage(chatId, attempts + ' attempts...');
+    if (attempts % 25000 === 0) {
+      const elapsed = (Date.now() - startTime) / 1000;
+      const rate = Math.round(attempts / elapsed);
+      bot.sendMessage(chatId, attempts.toLocaleString() + ' attempts... (' + rate.toLocaleString() + '/sec)');
+      
+      const searchData = activeSearches.get(chatId);
+      if (searchData) {
+        searchData.attempts = attempts;
+      }
     }
     
-    setImmediate(search);
+    setTimeout(searchBatch, 1);
   }
   
-  search();
+  searchBatch();
 }
 
-console.log('Bot started');
+console.log('Bot started with improved stability');

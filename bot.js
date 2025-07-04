@@ -1,8 +1,6 @@
 const TelegramBot = require('node-telegram-bot-api');
 const { Keypair } = require('@solana/web3.js');
 const bs58 = require('bs58').default;
-const bip39 = require('bip39');
-const { derivePath } = require('ed25519-hd-key');
 const http = require('http');
 
 const token = '7780270031:AAFfIDHckiW7dMKzUjsxrN1D2sBJVvqm-2k';
@@ -10,7 +8,7 @@ const bot = new TelegramBot(token, { polling: true });
 
 const server = http.createServer((req, res) => {
   res.writeHead(200, { 'Content-Type': 'text/plain' });
-  res.end('Wallet Generator Bot is running');
+  res.end('Simple Wallet Generator Bot is running');
 });
 
 const PORT = process.env.PORT || 3000;
@@ -22,8 +20,6 @@ bot.onText(/\/start/, (msg) => {
   const chatId = msg.chat.id;
   bot.sendMessage(chatId, `🔑 Solana Wallet Generator
 
-Generate fresh Solana wallets instantly!
-
 Commands:
 /generate - Generate 1 wallet
 /generate5 - Generate 5 wallets  
@@ -32,11 +28,10 @@ Commands:
 /generate50 - Generate 50 wallets
 
 Each wallet includes:
-• 12-word mnemonic phrase
 • Public address
-• Private key
+• Private key (ready to import)
 
-⚠️ Save your keys securely!`);
+⚠️ Save your private keys securely!`);
 });
 
 bot.onText(/\/generate(\d*)/, (msg, match) => {
@@ -57,7 +52,7 @@ bot.onText(/\/generate(\d*)/, (msg, match) => {
     return;
   }
 
-  bot.sendMessage(chatId, `⏳ Generating ${count} fresh Solana wallet${count > 1 ? 's' : ''}...`);
+  bot.sendMessage(chatId, `⏳ Generating ${count} fresh wallet${count > 1 ? 's' : ''}...`);
   generateWallets(chatId, count);
 });
 
@@ -65,14 +60,9 @@ function generateWallets(chatId, count) {
   const wallets = [];
   
   for (let i = 0; i < count; i++) {
-    const mnemonic = bip39.generateMnemonic();
-    const seed = bip39.mnemonicToSeedSync(mnemonic);
-    const derivedSeed = derivePath("m/44'/501'/0'/0'", seed.toString('hex')).key;
-    const keypair = Keypair.fromSeed(derivedSeed);
-    
+    const keypair = Keypair.generate();
     wallets.push({
       number: i + 1,
-      mnemonic,
       publicKey: keypair.publicKey.toBase58(),
       privateKey: bs58.encode(keypair.secretKey)
     });
@@ -80,40 +70,29 @@ function generateWallets(chatId, count) {
   
   if (count === 1) {
     const wallet = wallets[0];
-    const message = `🎉 New Solana Wallet Generated!
+    bot.sendMessage(chatId, `🎉 New Solana Wallet!
 
-🔤 **Mnemonic Phrase:**
-\`${wallet.mnemonic}\`
+Address: \`${wallet.publicKey}\`
 
-🔑 **Public Address:**
-\`${wallet.publicKey}\`
+Private Key: \`${wallet.privateKey}\`
 
-🔐 **Private Key:**
-\`${wallet.privateKey}\`
-
-⚠️ **IMPORTANT:** Save these securely!`;
-    
-    bot.sendMessage(chatId, message, { parse_mode: 'Markdown' });
+⚠️ Save your private key securely!`, { parse_mode: 'Markdown' });
   } else {
-    const batchSize = 5;
-    for (let i = 0; i < wallets.length; i += batchSize) {
-      const batch = wallets.slice(i, i + batchSize);
-      let message = `🎉 Wallets ${batch[0].number}-${batch[batch.length - 1].number} of ${count}:\n\n`;
+    for (let i = 0; i < wallets.length; i += 10) {
+      const batch = wallets.slice(i, i + 10);
+      let message = `🎉 Wallets ${batch[0].number}-${batch[batch.length - 1].number}:\n\n`;
       
       batch.forEach(wallet => {
-        message += `**Wallet ${wallet.number}:**\n`;
-        message += `Mnemonic: \`${wallet.mnemonic}\`\n`;
+        message += `Wallet ${wallet.number}:\n`;
         message += `Address: \`${wallet.publicKey}\`\n`;
         message += `Private Key: \`${wallet.privateKey}\`\n\n`;
       });
       
-      message += `⚠️ Save these securely!`;
-      
       setTimeout(() => {
         bot.sendMessage(chatId, message, { parse_mode: 'Markdown' });
-      }, (i / batchSize) * 1000);
+      }, (i / 10) * 2000);
     }
   }
 }
 
-console.log('Solana Wallet Generator Bot started successfully!');
+console.log('Simple Wallet Generator Bot started!');
